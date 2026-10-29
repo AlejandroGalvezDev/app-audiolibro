@@ -290,6 +290,42 @@
     }
   }
 
+  async function playVoicePreview() {
+    const providerId = $('#provider-select')?.value;
+    const voiceId = $('#voice-select')?.value;
+    const audio = $('#preview-audio');
+    const status = $('#preview-status');
+    const button = $('#preview-voice-btn');
+    if (!providerId || !voiceId) {
+      toast('Selecciona un proveedor y una voz', 'warning');
+      return;
+    }
+    setBusy(button, true, 'Generando…');
+    if (status) status.textContent = 'Generando muestra…';
+    try {
+      const url = `/api/preview/${encodeURIComponent(providerId)}/${encodeURIComponent(voiceId)}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.detail || `Error ${response.status}`);
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      if (audio) {
+        if (audio.src && audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
+        audio.src = objectUrl;
+        audio.load();
+        await audio.play();
+      }
+      if (status) status.textContent = 'Reproduciendo muestra.';
+    } catch (error) {
+      if (status) status.textContent = `Error: ${error.message}`;
+      toast(error.message, 'error');
+    } finally {
+      setBusy(button, false);
+    }
+  }
+
   function selectSource(source) {
     state.source = source;
     $$('.tab[data-source]').forEach((tab) => {
@@ -430,6 +466,7 @@
       $('#speed-value').textContent = `${parseFloat($('#speed').value).toFixed(2)}×`;
     });
     $('#refresh-providers')?.addEventListener('click', loadProviders);
+    $('#preview-voice-btn')?.addEventListener('click', playVoicePreview);
     form.addEventListener('submit', onGenerate);
 
     readStoredSelection();

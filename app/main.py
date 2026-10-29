@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import time
 from pathlib import Path
 
@@ -127,6 +128,74 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 status_code=502, detail=f"No se pudieron obtener las voces: {exc}"
             ) from exc
         return {"provider": provider_id, "voices": [voice.to_dict() for voice in voices]}
+
+    # -- previsualización de voz ---------------------------------------
+    PREVIEW_TEXTS = {
+        "es": "Hola, esta es una muestra de la voz seleccionada.",
+        "en": "Hello, this is a voice sample.",
+        "fr": "Bonjour, ceci est un extrait de voix.",
+        "de": "Hallo, dies ist eine Sprachprobe.",
+        "pt": "Olá, esta é uma amostra de voz.",
+    }
+    MEDIA_TYPES = {"mp3": "audio/mpeg", "wav": "audio/wav", "ogg": "audio/ogg"}
+
+    @app.get("/api/preview/{provider_id}/{voice_id}")
+    async def preview_voice(provider_id: str, voice_id: str):
+        try:
+            provider = tts_router.get(provider_id)
+        except TTSUnavailable as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+        available, reason = provider.effective_availability()
+        if not available:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Proveedor no disponible: {reason or 'sin detalle'}",
+            )
+
+        try:
+            voices = await tts_router.voices(provider_id)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        voice = next((v for v in voices if v.id == voice_id), None)
+        lang_code = ((voice.lang if voice else "es") or "es")[:2].lower()
+        text = PREVIEW_TEXTS.get(lang_code, PREVIEW_TEXTS["en"])
+
+        preview_dir = settings.cache_dir / "previews"
+        preview_dir.mkdir(parents=True, exist_ok=True)
+        key = hashlib.sha256(f"{provider_id}|{voice_id}".encode()).hexdigest()[:24]
+
+        existing = list(preview_dir.glob(f"{key}.*"))
+        if existing:
+            cached = existing[0]
+            ext = cached.suffix.lstrip(".").lower() or "mp3"
+            return FileResponse(
+                cached,
+                media_type=MEDIA_TYPES.get(ext, "audio/mpeg"),
+                filename=f"preview_{provider_id}_{voice_id}.{ext}",
+            )
+
+        try:
+            result, _used = await tts_router.synthesize(
+                provider_id, text, voice_id, lang_code or "es", 1.0
+            )
+        except TTSUnavailable as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=f"Error generando muestra: {exc}") from exc
+
+        ext = (result.format or "mp3").lower()
+        target = preview_dir / f"{key}.{ext}"
+        try:
+            target.write_bytes(result.data)
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+        return FileResponse(
+            target,
+            media_type=MEDIA_TYPES.get(ext, "audio/mpeg"),
+            filename=f"preview_{provider_id}_{voice_id}.{ext}",
+        )
 
     # -- archivos ------------------------------------------------------
     @app.get("/api/files")

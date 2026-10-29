@@ -89,6 +89,12 @@
         <span>Voz</span>
         <select id="voice-select" name="voice"></select>
       </label>
+      <div class="field">
+        <span>Muestra de voz</span>
+        <button type="button" class="btn ghost small" id="preview-voice-btn">▶ Escuchar muestra</button>
+        <audio id="preview-audio" controls preload="none" class="preview-audio"></audio>
+        <p class="hint" id="preview-status"></p>
+      </div>
       <label class="field">
         <span>Velocidad <output id="speed-value">1.0×</output></span>
         <input id="speed" name="speed" type="range" min="0.5" max="2" step="0.05" value="1">
