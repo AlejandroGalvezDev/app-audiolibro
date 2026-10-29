@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Explorador de archivos{% endblock %}
+{% block page %}browser{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Servidor</p>
+    <h1>Explorador de archivos</h1>
+    <p class="muted">Solo puedes navegar dentro de <code>{{ settings.base_path }}</code>.</p>
+  </div>
+  <a class="btn ghost" href="/">Volver al generador</a>
+</section>
+
+<section class="card browser-card">
+  <div class="browser-toolbar">
+    <button id="up-btn" class="btn ghost small" type="button" title="Subir un nivel">↑ Subir</button>
+    <nav id="breadcrumbs" class="breadcrumbs" aria-label="Ruta"></nav>
+    <input id="filter" class="input small" type="search" placeholder="Filtrar…" autocomplete="off">
+    <button id="refresh-btn" class="btn ghost small" type="button">Actualizar</button>
+  </div>
+  <div id="browser-error" class="alert hidden"></div>
+  <div id="entries" class="entries" aria-live="polite">
+    <div class="loading">Cargando…</div>
+  </div>
+  <p class="hint">Solo los archivos <strong>.epub</strong> y <strong>.pdf</strong> son seleccionables. Haz clic en una carpeta para entrar.</p>
+</section>
+{% endblock %}

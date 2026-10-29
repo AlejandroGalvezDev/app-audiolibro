@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Trabajos{% endblock %}
+{% block page %}jobs{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Historial de la sesión</p>
+    <h1>Trabajos de generación</h1>
+    <p class="muted">Los trabajos viven en memoria mientras el servidor esté activo.</p>
+  </div>
+  <button id="refresh-jobs" class="btn ghost" type="button">Actualizar</button>
+</section>
+
+<div id="jobs-list" class="jobs-list">
+  <div class="loading">Cargando trabajos…</div>
+</div>
+{% endblock %}

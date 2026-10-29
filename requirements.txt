@@ -1,0 +1,19 @@
+fastapi
+uvicorn
+jinja2
+python-multipart
+ebooklib
+beautifulsoup4
+lxml
+edge-tts
+mutagen
+pymupdf
+gTTS
+httpx
+
+# Desarrollo y tests
+pytest
+
+# Nota: pydub no se usa. Python 3.13 eliminó el módulo `audioop` que pydub
+# necesita; la concatenación de MP3/WAV se implementa de forma nativa en
+# app/audio.py. ffmpeg es una dependencia opcional del sistema (ver README).

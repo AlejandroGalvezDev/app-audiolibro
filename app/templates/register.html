@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Registro de servicios{% endblock %}
+{% block page %}register{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Credenciales</p>
+    <h1>Registro de servicios</h1>
+    <p class="muted">
+      Guarda API keys para proveedores cloud. Se almacenan en
+      <code>{{ settings.data_dir }}/credentials.json</code> con permisos 600 y
+      nunca se muestran completas.
+    </p>
+  </div>
+</section>
+
+<section class="notice">
+  <strong>Proveedores gratuitos:</strong> Edge TTS no necesita clave y se usa por
+  defecto si está disponible. gTTS y Piper tampoco requieren registro; puedes
+  activarlos o desactivarlos aquí abajo. También puedes definir claves mediante
+  variables de entorno (por ejemplo <code>OPENAI_API_KEY</code>).
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <div>
+      <h2>Proveedores gratuitos</h2>
+      <p class="muted">Activa o desactiva los motores sin clave. El orden de preferencia se mantiene.</p>
+    </div>
+  </div>
+  <div id="free-providers" class="provider-grid">
+    <div class="skeleton card"></div>
+    <div class="skeleton card"></div>
+  </div>
+</section>
+
+<div id="credentials-list" class="credentials-grid">
+  <div class="skeleton card"></div>
+  <div class="skeleton card"></div>
+</div>
+{% endblock %}

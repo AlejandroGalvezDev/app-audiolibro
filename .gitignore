@@ -1,0 +1,28 @@
+# Entorno virtual
+.venv/
+venv/
+
+# Datos de la aplicación y secretos
+data/
+*.credentials.json
+
+# Audio generado
+*.mp3
+*.wav
+*.m4a
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editores / sistema
+.env
+.env.*
+.DS_Store
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Generar audiolibro{% endblock %}
+{% block page %}index{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div>
+    <p class="eyebrow">EPUB · PDF → MP3</p>
+    <h1>Convierte cualquier libro en un audiolibro</h1>
+    <p class="lead">
+      Extrae el texto por capítulos, sintetízalo con voces neuronales y descarga
+      el audio completo o capítulo a capítulo. Prioriza motores gratuitos.
+    </p>
+  </div>
+  <div class="hero-stats">
+    <div><strong>8</strong><span>proveedores TTS</span></div>
+    <div><strong>0 €</strong><span>con Edge TTS</span></div>
+    <div><strong>MP3</strong><span>con metadatos ID3</span></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <div>
+      <h2>Estado de servicios</h2>
+      <p class="muted">Los proveedores sin clave se usan primero. Configura claves en <a href="/register">Servicios</a>.</p>
+    </div>
+    <button class="btn ghost small" id="refresh-providers" type="button">Actualizar</button>
+  </div>
+  <div id="providers-grid" class="provider-grid">
+    <div class="skeleton card"></div>
+    <div class="skeleton card"></div>
+    <div class="skeleton card"></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <div>
+      <h2>Nuevo audiolibro</h2>
+      <p class="muted">Sube un archivo o elige uno que ya esté en el servidor.</p>
+    </div>
+  </div>
+
+  <form id="generate-form" class="generator card" novalidate>
+    <div class="source-block">
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab active" data-source="upload" role="tab">Subir archivo</button>
+        <button type="button" class="tab" data-source="server" role="tab">Archivo del servidor</button>
+      </div>
+
+      <div class="source-panel" data-panel="upload">
+        <label class="dropzone" id="dropzone" for="file-input">
+          <input id="file-input" type="file" accept=".epub,.pdf,application/epub+zip,application/pdf">
+          <span class="dropzone-icon">⇪</span>
+          <span class="dropzone-title">Arrastra un EPUB o PDF aquí</span>
+          <span class="dropzone-help">o haz clic para buscarlo · máx. {{ settings.max_upload_mb }} MB</span>
+        </label>
+        <div id="selected-file" class="selected-file hidden">
+          <span class="file-pill" id="selected-file-name"></span>
+          <button type="button" class="btn ghost small" id="clear-file">Quitar</button>
+        </div>
+        <p id="upload-status" class="hint"></p>
+      </div>
+
+      <div class="source-panel hidden" data-panel="server">
+        <div class="row">
+          <input id="file-path" class="input grow" type="text" placeholder="Ruta del EPUB/PDF dentro de {{ settings.base_path }}" autocomplete="off">
+          <a class="btn secondary" href="/browser">Explorar…</a>
+        </div>
+        <p class="hint">También puedes escribir una ruta absoluta dentro del directorio permitido.</p>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <label class="field">
+        <span>Proveedor</span>
+        <select id="provider-select" name="provider"></select>
+      </label>
+      <label class="field">
+        <span>Idioma</span>
+        <select id="lang-select" name="lang"></select>
+      </label>
+      <label class="field">
+        <span>Acento / región</span>
+        <select id="accent-select" name="accent"></select>
+      </label>
+      <label class="field">
+        <span>Voz</span>
+        <select id="voice-select" name="voice"></select>
+      </label>
+      <label class="field">
+        <span>Velocidad <output id="speed-value">1.0×</output></span>
+        <input id="speed" name="speed" type="range" min="0.5" max="2" step="0.05" value="1">
+      </label>
+      <label class="field">
+        <span>Formato</span>
+        <select id="format-select" name="format">
+          <option value="mp3">MP3 (recomendado)</option>
+          <option value="wav" {{ 'disabled' if not ffmpeg else '' }}>WAV{{ ' · requiere ffmpeg' if not ffmpeg else '' }}</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn primary" id="generate-btn" type="submit">Generar audiolibro</button>
+      <span class="hint" id="provider-hint"></span>
+    </div>
+  </form>
+</section>
+
+<section id="job-panel" class="section hidden">
+  <div class="card job-live">
+    <div class="job-live-head">
+      <div>
+        <p class="eyebrow">Trabajo <span id="job-id"></span></p>
+        <h2 id="job-title">Generando…</h2>
+      </div>
+      <span id="job-status" class="badge">en cola</span>
+    </div>
+    <div class="progress"><div id="job-progress" class="progress-bar" style="width:0%"></div></div>
+    <p id="job-message" class="muted"></p>
+    <div id="job-chapters" class="chapter-list"></div>
+    <div id="job-actions" class="form-actions"></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="how-grid">
+    <article class="mini-card"><h3>1 · Extrae</h3><p>EPUB por spine y PDF por páginas con límpieza de texto.</p></article>
+    <article class="mini-card"><h3>2 · Sintetiza</h3><p>Fragmentos de ~3000 caracteres con reintentos automáticos.</p></article>
+    <article class="mini-card"><h3>3 · Ensambla</h3><p>MP3 por capítulo, audiolibro completo y metadatos ID3.</p></article>
+  </div>
+</section>
+{% endblock %}
