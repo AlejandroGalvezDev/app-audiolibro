@@ -42,7 +42,7 @@ class GTTSProvider(TTSProvider):
             raise TTSUnavailable(reason)
         from gtts import gTTS
 
-        voice_id = voice or "es|com.es"
+        voice_id = voice or "es|es"
         language = voice_id.split("|", 1)[0] if "|" in voice_id else (lang[:2] or "es")
         tld = voice_id.split("|", 1)[1] if "|" in voice_id else "com"
         buffer = io.BytesIO()
