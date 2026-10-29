@@ -7,16 +7,13 @@ import io
 from app.tts.base import SynthesisResult, TTSProvider, TTSUnavailable, Voice
 
 _VOICES = [
-    Voice("es|com.es", "Español · España", "es-ES"),
-    Voice("es|com.mx", "Español · México", "es-MX"),
-    Voice("es|com.ar", "Español · Argentina", "es-AR"),
-    Voice("es|com.co", "Español · Colombia", "es-CO"),
-    Voice("es|com", "Español · EE. UU.", "es-US"),
+    Voice("es|es", "Español · España", "es-ES"),
+    Voice("es|com", "Español · Internacional", "es-ES"),
     Voice("en|com", "English · US", "en-US"),
     Voice("en|co.uk", "English · UK", "en-GB"),
     Voice("fr|fr", "Français", "fr-FR"),
     Voice("de|de", "Deutsch", "de-DE"),
-    Voice("pt|com.br", "Português · Brasil", "pt-BR"),
+    Voice("pt|com", "Português", "pt-BR"),
 ]
 
 
