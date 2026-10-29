@@ -302,9 +302,11 @@
     }
     setBusy(button, true, 'Generando…');
     if (status) status.textContent = 'Generando muestra…';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90000);
     try {
       const url = `/api/preview/${encodeURIComponent(providerId)}/${encodeURIComponent(voiceId)}`;
-      const response = await fetch(url);
+      const response = await fetch(url, { signal: controller.signal });
       if (!response.ok) {
         const data = await response.json().catch(() => null);
         throw new Error(data?.detail || `Error ${response.status}`);
@@ -322,6 +324,7 @@
       if (status) status.textContent = `Error: ${error.message}`;
       toast(error.message, 'error');
     } finally {
+      clearTimeout(timeout);
       setBusy(button, false);
     }
   }

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import os
 import time
 from pathlib import Path
 
@@ -49,6 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.tts_router = tts_router
     app.state.file_service = file_service
     app.state.job_manager = job_manager
+    app.state.preview_locks = {}
 
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -139,7 +142,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     }
     MEDIA_TYPES = {"mp3": "audio/mpeg", "wav": "audio/wav", "ogg": "audio/ogg"}
 
-    @app.get("/api/preview/{provider_id}/{voice_id}")
+    def _voice_lang(provider, voice_id: str) -> str:
+        """Obtiene el idioma de una voz sin llamadas de red."""
+        for voice in provider.static_voices():
+            if voice.id == voice_id:
+                return voice.lang or ""
+        if "|" in voice_id:
+            return voice_id.split("|", 1)[0]
+        parts = voice_id.split("-")
+        if len(parts) >= 2 and len(parts[0]) == 2 and len(parts[1]) == 2:
+            return f"{parts[0]}-{parts[1]}"
+        return ""
+
+    @app.get("/api/preview/{provider_id}/{voice_id:path}")
     async def preview_voice(provider_id: str, voice_id: str):
         try:
             provider = tts_router.get(provider_id)
@@ -153,49 +168,81 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 detail=f"Proveedor no disponible: {reason or 'sin detalle'}",
             )
 
-        try:
-            voices = await tts_router.voices(provider_id)
-        except Exception as exc:  # noqa: BLE001
-            raise HTTPException(status_code=502, detail=str(exc)) from exc
-        voice = next((v for v in voices if v.id == voice_id), None)
-        lang_code = ((voice.lang if voice else "es") or "es")[:2].lower()
+        lang = _voice_lang(provider, voice_id) or "es"
+        lang_code = lang[:2].lower()
         text = PREVIEW_TEXTS.get(lang_code, PREVIEW_TEXTS["en"])
 
         preview_dir = settings.cache_dir / "previews"
         preview_dir.mkdir(parents=True, exist_ok=True)
-        key = hashlib.sha256(f"{provider_id}|{voice_id}".encode()).hexdigest()[:24]
+        key = hashlib.sha256(
+            f"{provider_id}|{voice_id}|preview-v2".encode()
+        ).hexdigest()[:24]
 
-        existing = list(preview_dir.glob(f"{key}.*"))
-        if existing:
-            cached = existing[0]
-            ext = cached.suffix.lstrip(".").lower() or "mp3"
+        locks = getattr(app.state, "preview_locks", None)
+        if locks is None:
+            app.state.preview_locks = {}
+            locks = app.state.preview_locks
+        lock = locks.setdefault(key, asyncio.Lock())
+
+        async with lock:
+            existing = [
+                path
+                for path in preview_dir.glob(f"{key}.*")
+                if path.is_file() and path.stat().st_size > 0
+            ]
+            if existing:
+                cached = existing[0]
+                ext = cached.suffix.lstrip(".").lower() or "mp3"
+                safe_name = f"preview_{provider_id}_{voice_id.replace('/', '_')}.{ext}"
+                return FileResponse(
+                    cached,
+                    media_type=MEDIA_TYPES.get(ext, "audio/mpeg"),
+                    filename=safe_name,
+                    headers={"Cache-Control": "public, max-age=86400"},
+                )
+
+            # Limpia archivos vacíos/corruptos previos.
+            for path in preview_dir.glob(f"{key}.*"):
+                try:
+                    if path.is_file() and path.stat().st_size == 0:
+                        path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+
+            try:
+                result, _used = await tts_router.synthesize(
+                    provider_id, text, voice_id, lang or lang_code, 1.0
+                )
+            except TTSUnavailable as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            except Exception as exc:  # noqa: BLE001
+                raise HTTPException(
+                    status_code=502, detail=f"Error generando muestra: {exc}"
+                ) from exc
+
+            if not result.data:
+                raise HTTPException(status_code=502, detail="El proveedor devolvió audio vacío")
+
+            ext = (result.format or "mp3").lower()
+            target = preview_dir / f"{key}.{ext}"
+            tmp = target.with_suffix(target.suffix + ".tmp")
+            try:
+                tmp.write_bytes(result.data)
+                os.replace(tmp, target)
+            except OSError as exc:
+                try:
+                    tmp.unlink(missing_ok=True)
+                except OSError:
+                    pass
+                raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+            safe_name = f"preview_{provider_id}_{voice_id.replace('/', '_')}.{ext}"
             return FileResponse(
-                cached,
+                target,
                 media_type=MEDIA_TYPES.get(ext, "audio/mpeg"),
-                filename=f"preview_{provider_id}_{voice_id}.{ext}",
+                filename=safe_name,
+                headers={"Cache-Control": "public, max-age=86400"},
             )
-
-        try:
-            result, _used = await tts_router.synthesize(
-                provider_id, text, voice_id, lang_code or "es", 1.0
-            )
-        except TTSUnavailable as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        except Exception as exc:  # noqa: BLE001
-            raise HTTPException(status_code=502, detail=f"Error generando muestra: {exc}") from exc
-
-        ext = (result.format or "mp3").lower()
-        target = preview_dir / f"{key}.{ext}"
-        try:
-            target.write_bytes(result.data)
-        except OSError as exc:
-            raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-        return FileResponse(
-            target,
-            media_type=MEDIA_TYPES.get(ext, "audio/mpeg"),
-            filename=f"preview_{provider_id}_{voice_id}.{ext}",
-        )
 
     # -- archivos ------------------------------------------------------
     @app.get("/api/files")
